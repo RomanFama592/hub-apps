@@ -2,7 +2,7 @@
 import fs from "fs/promises";
 import path from "path";
 import Layout from "../layouts/Layout.astro";
-import BentoCard from "../components/BentoCard.astro";
+import BentoGrid from "../components/BentoGrid.astro";
 import AddServiceModal from "../components/AddServiceModal.astro";
 import type { Config, Service } from "../types/hub";
 
@@ -17,7 +17,9 @@ try {
   console.log("Configuración inicial no encontrada. Usando estado por defecto.");
 }
 
-// Función tipada para paginado
+// Función tipada para paginado: cuando hay más servicios que
+// maxPerPage, se reparten en "páginas" navegables horizontalmente
+// (cada una sigue siendo un bento grid completo, sin scroll vertical).
 const chunkArray = <T,>(arr: T[], size: number): T[][] =>
   Array.from({ length: Math.ceil(arr.length / size) }, (_, i) =>
     arr.slice(i * size, i * size + size)
@@ -40,9 +42,7 @@ const pages: Service[][] = chunkArray(config.services, config.maxPerPage);
     {
       pages.map((page, pageIndex) => (
         <section class="page" data-page-index={pageIndex}>
-          {page.map((service) => (
-            <BentoCard service={service} />
-          ))}
+          <BentoGrid services={page} />
         </section>
       ))
     }
@@ -52,38 +52,46 @@ const pages: Service[][] = chunkArray(config.services, config.maxPerPage);
 </Layout>
 
 <style>
-  /* Contenedor principal con Swipe / Scroll Snap horizontal */
+  /* Contenedor raíz: viewport lock estricto. dvh resuelve el clásico
+     problema de 100vh en móvil (barras de navegador que aparecen o
+     desaparecen); vh queda como fallback para navegadores sin soporte
+     de unidades dinámicas. overflow:hidden en TODOS los niveles
+     (slider + page) es lo que garantiza cero scroll vertical bajo
+     cualquier circunstancia, incluso si algún contenido inesperado
+     fuese más alto de lo previsto. */
   .slider {
     display: flex;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    height: 100vh;
     width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
     scrollbar-width: none;
+    box-sizing: border-box;
   }
 
   .slider::-webkit-scrollbar {
     display: none;
   }
 
-  /* Vista paginada */
+  /* Cada página ocupa el 100% del viewport y aloja un BentoGrid
+     completo. El padding vive aquí para que BentoGrid pueda asumir
+     "ocupo el 100% de mi contenedor" sin preocuparse de márgenes. */
   .page {
     flex: 0 0 100vw;
     width: 100vw;
-    height: 100vh;
+    height: 100%;
     scroll-snap-align: start;
-    padding: 2rem;
+    padding: clamp(0.75rem, 2.5vw, 2rem);
     box-sizing: border-box;
-    display: grid;
-    /* Responsive Grid: adapta columnas según pantalla */
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    grid-auto-rows: 180px;
-    gap: 1.25rem;
-    align-content: center;
+    overflow: hidden;
   }
 
   .empty-state {
+    flex: 0 0 100vw;
     width: 100vw;
+    height: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -91,53 +99,19 @@ const pages: Service[][] = chunkArray(config.services, config.maxPerPage);
     text-align: center;
     color: var(--text-muted);
   }
-
-  /* Ajustes Responsive para Móviles */
-  @media (max-width: 640px) {
-    .page {
-      padding: 1rem;
-      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-      grid-auto-rows: 140px;
-      gap: 0.75rem;
-    }
-  }
 </style>
 
 <script>
-  import type { BentoLayoutItem, PingResponse } from "../types/hub";
+  import type { PingResponse } from "../types/hub";
 
   document.addEventListener("DOMContentLoaded", () => {
+    // El tamaño/posición de cada tarjeta ya llega calculado desde el
+    // servidor (ver BentoGrid.astro + src/lib/bentoLayout.ts) como
+    // custom properties CSS, así que aquí solo queda comprobar el
+    // estado (ping) de cada servicio — cero recálculo de layout en
+    // cliente, cero parpadeos, cero desajuste entre SSR y DOM.
     const blocks = document.querySelectorAll<HTMLElement>(".bento-block");
-    if (blocks.length === 0) return;
 
-    // 1. RANDOMIZACIÓN Y PERSISTENCIA DE TAMAÑOS BENTO
-    const isMobile = window.innerWidth < 640;
-    let layout: BentoLayoutItem[] | null = null;
-
-    try {
-      const stored = sessionStorage.getItem("bentoLayout");
-      if (stored) layout = JSON.parse(stored);
-    } catch (e) {
-      console.error("Error leyendo sessionStorage:", e);
-    }
-
-    if (!layout || layout.length !== blocks.length) {
-      layout = Array.from(blocks).map(() => ({
-        // En móviles limitamos la expansión a máximo 2 columnas
-        colSpan: Math.random() > 0.75 ? 2 : 1,
-        rowSpan: !isMobile && Math.random() > 0.8 ? 2 : 1
-      }));
-      sessionStorage.setItem("bentoLayout", JSON.stringify(layout));
-    }
-
-    blocks.forEach((block, index) => {
-      if (layout && layout[index]) {
-        block.style.gridColumn = `span ${layout[index].colSpan}`;
-        block.style.gridRow = `span ${layout[index].rowSpan}`;
-      }
-    });
-
-    // 2. PING EN TIEMPO REAL A CADA SERVICIO
     blocks.forEach(async (block) => {
       const url = block.getAttribute("data-url");
       const dot = block.querySelector<HTMLElement>(".status-dot");

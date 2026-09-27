@@ -57,6 +57,19 @@ const { title = "My Local Hub" } = Astro.props;
     box-sizing: border-box;
   }
 
+  /* Red de seguridad a nivel de documento para el requisito de "cero
+     scroll vertical bajo cualquier circunstancia": bloquea html/body
+     exactamente al viewport (con fallback vh -> dvh) e impide
+     cualquier overflow, sin importar lo que ocurra dentro de
+     .slider/.page/BentoGrid. */
+  html,
+  body {
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
   body {
     margin: 0;
     font-family:
@@ -68,7 +81,5 @@ const { title = "My Local Hub" } = Astro.props;
       sans-serif;
     background-color: var(--bg-color);
     color: var(--text);
-    overflow-x: hidden;
-    min-height: 100vh;
   }
 </style>

@@ -1,52 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import type { Config } from '../../types/hub';
-
-// 1. Extrae las iniciales del nombre (hasta 2 letras)
-function getInitials(name: string): string {
-  const words = name.trim().split(/\s+/);
-  if (words.length >= 2) {
-    return (words[0][0] + words[1][0]).toUpperCase();
-  }
-  return name.slice(0, 2).toUpperCase();
-}
-
-// 2. Genera un SVG dinámico con las iniciales y gradiente
-function generateInitialsSVG(name: string): string {
-  const initials = getInitials(name);
-  const gradients = [
-    { start: '#3b82f6', end: '#1d4ed8' },
-    { start: '#6366f1', end: '#4338ca' },
-    { start: '#8b5cf6', end: '#6d28d9' },
-    { start: '#06b6d4', end: '#0e7490' },
-    { start: '#10b981', end: '#047857' },
-    { start: '#f59e0b', end: '#b45309' },
-    { start: '#64748b', end: '#334155' }
-  ];
-
-  const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const color = gradients[hash % gradients.length];
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <defs>
-    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="${color.start}" />
-      <stop offset="100%" stop-color="${color.end}" />
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" rx="100" fill="url(#bg-grad)" />
-  <text x="50%" y="54%" 
-        dominant-baseline="middle" 
-        text-anchor="middle" 
-        fill="#FFFFFF" 
-        font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" 
-        font-size="200" 
-        font-weight="700" 
-        letter-spacing="4">
-    ${initials}
-  </text>
-</svg>`.trim();
-}
+import { generateInitialsSVG } from '../../lib/avatar';
 
 // Helper para procesar/descargar imagen o generar el SVG de iniciales
 async function processServiceImage(name: string, imageUrl?: string): Promise<string> {

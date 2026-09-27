@@ -1,6 +1,9 @@
 ---
 ---
 <button id="openModalBtn" class="add-btn" aria-label="Añadir Servicio">+</button>
+<button id="regenBtn" class="regen-btn" aria-label="Regenerar avatares generados" title="Regenerar avatares generados">
+  ↻
+</button>
 
 <dialog id="addModal">
   <div class="modal-header">
@@ -67,6 +70,56 @@
   .add-btn:hover {
     transform: scale(1.1);
     background: var(--accent-hover);
+  }
+
+  /* Botón secundario para regenerar la base de avatares de iniciales
+     en public/assets. Se ubica junto al botón "+" pero con estilo
+     glass/secundario para no competir visualmente con la acción
+     principal. */
+  .regen-btn {
+    position: fixed;
+    bottom: 2rem;
+    right: 5.5rem;
+    background: var(--surface);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    width: 56px;
+    height: 56px;
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: var(--card-shadow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease, background-color 0.2s ease;
+    z-index: 100;
+  }
+
+  .regen-btn:hover {
+    transform: scale(1.1) rotate(45deg);
+    background: var(--surface-hover);
+  }
+
+  .regen-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .regen-btn.spinning {
+    animation: regen-spin 0.9s linear infinite;
+  }
+
+  @keyframes regen-spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   dialog {
@@ -231,6 +284,38 @@
 
     cancelBtn?.addEventListener("click", () => dialog?.close());
     closeCross?.addEventListener("click", () => dialog?.close());
+
+    // Regenerar la base de avatares de iniciales (public/assets)
+    const regenBtn = document.getElementById("regenBtn") as HTMLButtonElement | null;
+    regenBtn?.addEventListener("click", async () => {
+      if (regenBtn.disabled) return;
+
+      const confirmed = confirm(
+        "Esto va a regenerar TODOS los avatares generados automáticamente (los que no son una imagen propia). ¿Continuar?"
+      );
+      if (!confirmed) return;
+
+      regenBtn.disabled = true;
+      regenBtn.classList.add("spinning");
+
+      try {
+        const res = await fetch("/api/regenerate-images", { method: "POST" });
+        const data = await res.json();
+
+        if (res.ok) {
+          window.location.reload();
+        } else {
+          alert(`No se pudo regenerar: ${data.error || "error desconocido"}`);
+          regenBtn.disabled = false;
+          regenBtn.classList.remove("spinning");
+        }
+      } catch (err) {
+        console.error("Error regenerando avatares:", err);
+        alert("Error de red al regenerar los avatares.");
+        regenBtn.disabled = false;
+        regenBtn.classList.remove("spinning");
+      }
+    });
 
     // Escuchar evento de edición disparado por BentoCard
     window.addEventListener("open-edit-modal", (e: Event) => {

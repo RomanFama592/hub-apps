@@ -1,0 +1,74 @@
+---
+import BentoCard from "./BentoCard.astro";
+import type { Service } from "../types/hub";
+import { generateBentoLayout, buildSeed, zipLayout } from "../lib/bentoLayout";
+
+interface Props {
+  services: Service[];
+}
+
+const { services } = Astro.props;
+const n = services.length;
+
+// Nº de columnas en escritorio: 4 a 6 según cantidad de tarjetas,
+// para que el bento no quede ni demasiado apretado ni demasiado plano.
+const desktopCols = n <= 6 ? 4 : n <= 12 ? 5 : 6;
+// Móvil fijo en 3 columnas asimétricas, tal como pide el spec.
+const mobileCols = 3;
+
+const ids = services.map((s) => s.id);
+
+// Seeds independientes (pero relacionadas) para que el patrón de
+// escritorio y el de móvil no sean idénticos entre sí.
+const desktopSeed = buildSeed(ids, 1);
+const mobileSeed = buildSeed(ids, 2);
+
+const desktopLayout = generateBentoLayout(n, desktopCols, desktopSeed);
+const mobileLayout = generateBentoLayout(n, mobileCols, mobileSeed);
+
+const desktopPairs = zipLayout(services, desktopLayout);
+const mobilePairs = zipLayout(services, mobileLayout);
+
+const cards = services.map((service, i) => ({
+  service,
+  d: desktopPairs[i].leaf,
+  m: mobilePairs[i].leaf
+}));
+
+const gridVars = [
+  `--cols-desktop:${desktopLayout.cols}`,
+  `--rows-desktop:${desktopLayout.rows}`,
+  `--cols-mobile:${mobileLayout.cols}`,
+  `--rows-mobile:${mobileLayout.rows}`
+].join(";");
+---
+
+<div class="bento-grid" style={gridVars}>
+  {cards.map(({ service, d, m }) => <BentoCard service={service} desktop={d} mobile={m} />)}
+</div>
+
+<style>
+  .bento-grid {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    grid-template-columns: repeat(var(--cols-desktop), 1fr);
+    grid-template-rows: repeat(var(--rows-desktop), 1fr);
+    gap: clamp(0.5rem, 1.2vw, 1.25rem);
+    /* Nota: aquí NO va overflow:hidden. El grid nunca puede desbordar
+       verticalmente porque sus filas están en 1fr (reparten siempre
+       el 100% de la altura disponible), y el bloqueo de scroll real ya
+       vive en .page / .slider / html,body. Si se pone overflow:hidden
+       aquí también, se recorta el efecto hover (translateY + scale) de
+       las tarjetas de la fila superior/bordes, dejando un "corte"
+       visible al pasar el mouse. */
+  }
+
+  @media (max-width: 768px) {
+    .bento-grid {
+      grid-template-columns: repeat(var(--cols-mobile), 1fr);
+      grid-template-rows: repeat(var(--rows-mobile), 1fr);
+      gap: clamp(0.4rem, 2vw, 0.75rem);
+    }
+  }
+</style>

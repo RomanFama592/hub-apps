@@ -1,11 +1,34 @@
 ---
 import type { Service } from "../types/hub";
+import type { BentoLeaf } from "../lib/bentoLayout";
 
 interface Props {
   service: Service;
+  desktop: BentoLeaf;
+  mobile: BentoLeaf;
 }
 
-const { service } = Astro.props;
+const { service, desktop, mobile } = Astro.props;
+
+// Coordenadas de grid (1-index, CSS Grid usa líneas no celdas) para
+// ambos breakpoints. Se exponen como custom properties y el CSS
+// decide cuál set usar según el media query — así el cambio de
+// tamaño de pantalla es instantáneo, sin JS ni recálculo en cliente.
+const gridVars = [
+  `--dcs:${desktop.x + 1}`,
+  `--dce:${desktop.x + 1 + desktop.w}`,
+  `--drs:${desktop.y + 1}`,
+  `--dre:${desktop.y + 1 + desktop.h}`,
+  `--mcs:${mobile.x + 1}`,
+  `--mce:${mobile.x + 1 + mobile.w}`,
+  `--mrs:${mobile.y + 1}`,
+  `--mre:${mobile.y + 1 + mobile.h}`
+].join(";");
+
+// Tamaño relativo del bloque (1 a 4 celdas) — se usa como pista extra
+// para pequeños ajustes discretos que un container query no cubre
+// (p. ej. mostrar/ocultar la descripción).
+const desktopArea = desktop.w * desktop.h;
 ---
 
 <a
@@ -14,6 +37,8 @@ const { service } = Astro.props;
   rel="noopener noreferrer"
   class="bento-block"
   data-url={service.url}
+  data-area={desktopArea}
+  style={gridVars}
 >
   {
     service.image && (
@@ -67,12 +92,26 @@ const { service } = Astro.props;
 
 <style>
   .bento-block {
+    /* Posición en el grid: desktop por defecto, móvil vía media query
+       (ver más abajo). Los valores concretos llegan como custom
+       properties inline desde el frontmatro de Astro. */
+    grid-column: var(--dcs) / var(--dce);
+    grid-row: var(--drs) / var(--dre);
+
+    /* Container query: el tamaño real que el grid le asigna a esta
+       tarjeta (que varía según el bloque procedural: 1x1, 2x1, 1x2,
+       2x2) pasa a ser la unidad de referencia para escalar tipografía,
+       paddings e iconos internos SIN romper el layout ni recurrir a
+       JS de resize. */
+    container-type: size;
+    container-name: bento-card;
+
     background: var(--surface);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 1.25rem;
+    border-radius: clamp(12px, 3cqw, 20px);
+    padding: clamp(0.65rem, 5cqw, 1.25rem);
     text-decoration: none;
     color: inherit;
     display: flex;
@@ -80,10 +119,21 @@ const { service } = Astro.props;
     justify-content: space-between;
     position: relative;
     overflow: hidden;
+    min-width: 0;
+    min-height: 0;
     transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
                 box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
                 background-color 0.25s ease;
     box-shadow: var(--card-shadow);
+  }
+
+  /* En móvil el bloque usa las coordenadas procedurales calculadas
+     para 3 columnas, no las de escritorio. */
+  @media (max-width: 768px) {
+    .bento-block {
+      grid-column: var(--mcs) / var(--mce);
+      grid-row: var(--mrs) / var(--mre);
+    }
   }
 
   .bento-block:hover {
@@ -118,8 +168,9 @@ const { service } = Astro.props;
   }
 
   .status-dot {
-    width: 12px;
-    height: 12px;
+    width: clamp(7px, 3.5cqw, 12px);
+    height: clamp(7px, 3.5cqw, 12px);
+    flex-shrink: 0;
     border-radius: 50%;
     background-color: #9ca3af;
     transition: background-color 0.3s ease, box-shadow 0.3s ease;
@@ -148,9 +199,10 @@ const { service } = Astro.props;
     border: 1px solid var(--border);
     color: var(--text);
     border-radius: 50%;
-    width: 32px;
-    height: 32px;
-    font-size: 1.2rem;
+    width: clamp(20px, 11cqw, 32px);
+    height: clamp(20px, 11cqw, 32px);
+    font-size: clamp(0.7rem, 6cqw, 1.2rem);
+    flex-shrink: 0;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -215,26 +267,49 @@ const { service } = Astro.props;
     background: var(--surface);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-    padding: 0.75rem 1rem;
-    border-radius: 12px;
+    padding: clamp(0.4rem, 3.5cqw, 0.75rem) clamp(0.5rem, 4.5cqw, 1rem);
+    border-radius: clamp(8px, 2.5cqw, 12px);
     border: 1px solid var(--border);
-    margin-top: 2rem;
+    margin-top: clamp(0.5rem, 8cqb, 2rem);
+    min-width: 0;
   }
 
   .service-title {
     margin: 0;
-    font-size: 1.1rem;
+    font-size: clamp(0.7rem, 6.5cqw, 1.1rem);
     font-weight: 600;
     color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .service-desc {
-    margin: 0.25rem 0 0 0;
-    font-size: 0.85rem;
+    margin: 0.2rem 0 0 0;
+    font-size: clamp(0.6rem, 4cqw, 0.85rem);
     color: var(--text-muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  /* Bloques muy pequeños (1x1) o muy bajos (2x1): la descripción sobra
+     y solo generaría ruido o desbordamiento; el container query mide
+     el tamaño REAL renderizado de cada tarjeta, así que esto reacciona
+     igual de bien a cualquier combinación de columnas/filas. */
+  @container bento-card (max-width: 150px) {
+    .service-desc {
+      display: none;
+    }
+  }
+
+  @container bento-card (max-height: 110px) {
+    .service-desc {
+      display: none;
+    }
+    .info-card {
+      margin-top: clamp(0.35rem, 6cqb, 1rem);
+    }
   }
 </style>
 
@@ -299,7 +374,6 @@ const { service } = Astro.props;
             });
 
             if (res.ok) {
-              sessionStorage.removeItem("bentoLayout");
               window.location.reload();
             }
           } catch (err) {
