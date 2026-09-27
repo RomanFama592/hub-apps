@@ -1,0 +1,256 @@
+---
+import fs from 'fs/promises';
+import path from 'path';
+
+// 1. Leer el archivo de configuración y paginar los servicios
+const configPath = path.join(process.cwd(), 'data/config.json');
+let config = { maxPerPage: 10, services: [] };
+try {
+    config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+} catch(e) {
+    console.log("Creando config.json...");
+}
+
+// Función para dividir en páginas
+const chunkArray = (arr, size) => 
+    Array.from({ length: Math.ceil(arr.length / size) }, (v, i) => arr.slice(i * size, i * size + size));
+
+const pages = chunkArray(config.services, config.maxPerPage);
+---
+
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>My Local Hub</title>
+    <style>
+        :root {
+            --bg-color: #f3f3f3;
+            --surface: rgba(255, 255, 255, 0.7);
+            --border: rgba(255, 255, 255, 0.5);
+            --text: #333;
+        }
+        body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg-color); color: var(--text); overflow-x: hidden; }
+        
+        /* Contenedor del Deslizamiento (Swipe nativo) */
+        .slider {
+            display: flex;
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            height: 100vh;
+            scrollbar-width: none; /* Ocultar scrollbar en Firefox */
+        }
+        .slider::-webkit-scrollbar { display: none; } /* Ocultar scrollbar en Chrome */
+
+        .page {
+            flex: 0 0 100vw;
+            scroll-snap-align: start;
+            padding: 40px;
+            box-sizing: border-box;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            grid-auto-rows: 200px;
+            gap: 20px;
+            align-content: center;
+        }
+
+        /* Estilo Fluent/Bento para los bloques */
+        .bento-block {
+            background: var(--surface);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 20px;
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+        }
+        .bento-block:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
+        }
+        .bento-block img {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+            z-index: 0;
+            opacity: 0.6;
+            transition: opacity 0.3s;
+        }
+        .bento-block:hover img { opacity: 0.8; }
+        
+        .info { position: relative; z-index: 1; background: rgba(255,255,255,0.8); padding: 10px; border-radius: 12px; }
+        .info h3 { margin: 0 0 5px 0; font-size: 1.2rem; }
+        .info p { margin: 0; font-size: 0.9rem; opacity: 0.8; }
+
+        /* Indicador de Estado (Ping) */
+        .status-dot {
+            position: absolute;
+            top: 15px; right: 15px;
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            background: #ccc; /* Gris = cargando */
+            z-index: 2;
+            box-shadow: 0 0 5px rgba(0,0,0,0.2);
+        }
+        .status-dot.active { background: #4caf50; box-shadow: 0 0 10px #4caf50; }
+        .status-dot.inactive { background: #f44336; box-shadow: 0 0 10px #f44336; }
+
+        /* Botón de Agregar */
+        .add-btn {
+            position: fixed; bottom: 30px; right: 30px;
+            background: #0078d4; color: white;
+            border: none; border-radius: 50%;
+            width: 60px; height: 60px; font-size: 30px;
+            cursor: pointer; box-shadow: 0 4px 15px rgba(0,120,212,0.4);
+        }
+        /* Modal simple */
+        dialog { border: none; border-radius: 16px; padding: 20px; width: 400px; max-width: 90%; background: var(--bg-color); box-shadow: 0 10px 40px rgba(0,0,0,0.2);}
+        dialog::backdrop { background: rgba(0,0,0,0.5); backdrop-filter: blur(5px); }
+        input { width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box;}
+        .image-options { display: flex; gap: 10px; margin-bottom: 10px; }
+        .image-options img { width: 100px; height: 100px; object-fit: cover; border-radius: 8px; cursor: pointer; border: 2px solid transparent;}
+        .image-options img.selected { border-color: #0078d4; }
+    </style>
+</head>
+<body>
+
+    <div class="slider">
+        {pages.length === 0 ? <p style="padding: 40px;">No hay servicios aún. ¡Añade uno!</p> : null}
+        
+        {pages.map(page => (
+            <div class="page">
+                {page.map(service => (
+                    <a href={service.url} target="_blank" class="bento-block" data-url={service.url}>
+                        {service.image && <img src={service.image} alt={service.name} />}
+                        <div class="status-dot"></div>
+                        <div class="info">
+                            <h3>{service.name}</h3>
+                            {service.description && <p>{service.description}</p>}
+                        </div>
+                    </a>
+                ))}
+            </div>
+        ))}
+    </div>
+
+    <button class="add-btn" onclick="document.getElementById('addModal').showModal()">+</button>
+
+    <dialog id="addModal">
+        <h2>Añadir Servicio</h2>
+        <form id="addForm">
+            <input type="text" id="sName" placeholder="Nombre (Ej. Pi-hole)" required />
+            <input type="text" id="sDesc" placeholder="Descripción (Opcional)" />
+            <input type="url" id="sUrl" placeholder="URL (Ej. http://192.168.1.10:80)" required />
+            
+            <button type="button" id="btnSearchImg" style="margin-bottom:10px;">Buscar Imágenes</button>
+            
+            <div class="image-options" id="imgContainer"></div>
+            <input type="url" id="sImageCustom" placeholder="O pega un enlace / sube archivo local" />
+            
+            <div style="text-align: right; margin-top: 15px;">
+                <button type="button" onclick="document.getElementById('addModal').close()">Cancelar</button>
+                <button type="submit" style="background:#0078d4; color:white; border:none; padding:8px 16px; border-radius:8px;">Guardar</button>
+            </div>
+        </form>
+    </dialog>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            // 1. RANDOMIZACIÓN BENTO PERSISTENTE EN SESIÓN
+            const blocks = document.querySelectorAll('.bento-block');
+            let layout = JSON.parse(sessionStorage.getItem('bentoLayout'));
+            
+            if (!layout || layout.length !== blocks.length) {
+                // Generar tamaños random
+                layout = Array.from(blocks).map(() => ({
+                    colSpan: Math.random() > 0.7 ? 2 : 1, // 30% de probabilidad de ser más ancho
+                    rowSpan: Math.random() > 0.8 ? 2 : 1  // 20% de probabilidad de ser más alto
+                }));
+                sessionStorage.setItem('bentoLayout', JSON.stringify(layout));
+            }
+
+            blocks.forEach((block, index) => {
+                block.style.gridColumn = `span ${layout[index].colSpan}`;
+                block.style.gridRow = `span ${layout[index].rowSpan}`;
+            });
+
+            // 2. PING EN TIEMPO REAL A LOS SERVICIOS
+            blocks.forEach(async (block) => {
+                const url = block.getAttribute('data-url');
+                const dot = block.querySelector('.status-dot');
+                try {
+                    const res = await fetch('/api/ping', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ url })
+                    });
+                    const data = await res.json();
+                    dot.classList.add(data.active ? 'active' : 'inactive');
+                } catch(e) {
+                    dot.classList.add('inactive');
+                }
+            });
+
+            // 3. LÓGICA DEL FORMULARIO Y BUSCADOR DE IMÁGENES
+            let selectedImage = '';
+            
+            document.getElementById('btnSearchImg').addEventListener('click', async () => {
+                const query = document.getElementById('sName').value;
+                if (!query) return alert("Escribe un nombre primero");
+                
+                const res = await fetch('/api/search', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ query })
+                });
+                const { images } = await res.json();
+                
+                const container = document.getElementById('imgContainer');
+                container.innerHTML = '';
+                images.forEach(imgUrl => {
+                    const imgEl = document.createElement('img');
+                    imgEl.src = imgUrl;
+                    imgEl.onclick = () => {
+                        document.querySelectorAll('.image-options img').forEach(img => img.classList.remove('selected'));
+                        imgEl.classList.add('selected');
+                        selectedImage = imgUrl;
+                    };
+                    container.appendChild(imgEl);
+                });
+            });
+
+            document.getElementById('addForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const customImage = document.getElementById('sImageCustom').value;
+                const finalImage = customImage || selectedImage;
+
+                const payload = {
+                    name: document.getElementById('sName').value,
+                    description: document.getElementById('sDesc').value,
+                    url: document.getElementById('sUrl').value,
+                    imageUrl: finalImage
+                };
+
+                const res = await fetch('/api/services', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    sessionStorage.removeItem('bentoLayout'); // Resetear layout para calcular el nuevo cubo
+                    window.location.reload();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
