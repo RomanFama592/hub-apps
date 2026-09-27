@@ -1,0 +1,74 @@
+---
+interface Props {
+  title?: string;
+}
+
+const { title = "My Local Hub" } = Astro.props;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    /* Paleta de colores - Tema Claro */
+    --bg-color: #f3f4f6;
+    --surface: rgba(255, 255, 255, 0.65);
+    --surface-hover: rgba(255, 255, 255, 0.85);
+    --border: rgba(255, 255, 255, 0.6);
+    --text: #1f2937;
+    --text-muted: #6b7280;
+    --accent: #0078d4;
+    --accent-hover: #005a9e;
+    --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    --card-shadow-hover: 0 15px 35px rgba(0, 0, 0, 0.1);
+    --modal-bg: rgba(255, 255, 255, 0.85);
+    --input-bg: rgba(255, 255, 255, 0.9);
+  }
+
+  /* Detección de Dark Mode Automático */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg-color: #0f172a;
+      --surface: rgba(30, 41, 59, 0.6);
+      --surface-hover: rgba(51, 65, 85, 0.7);
+      --border: rgba(255, 255, 255, 0.1);
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-hover: #0284c7;
+      --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      --card-shadow-hover: 0 15px 35px rgba(0, 0, 0, 0.45);
+      --modal-bg: rgba(30, 41, 59, 0.9);
+      --input-bg: rgba(15, 23, 42, 0.8);
+    }
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    font-family:
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      Roboto,
+      sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text);
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+</style>

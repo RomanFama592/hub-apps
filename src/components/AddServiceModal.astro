@@ -1,0 +1,299 @@
+---
+---
+<button id="openModalBtn" class="add-btn" aria-label="Añadir Servicio">+</button>
+
+<dialog id="addModal">
+  <div class="modal-header">
+    <h2>Añadir Servicio</h2>
+    <button type="button" id="closeModalCross" class="close-cross">&times;</button>
+  </div>
+
+  <form id="addForm">
+    <div class="field">
+      <label for="sName">Nombre</label>
+      <input type="text" id="sName" placeholder="Ej. Pi-hole" required autocomplete="off" />
+    </div>
+
+    <div class="field">
+      <label for="sDesc">Descripción (Opcional)</label>
+      <input type="text" id="sDesc" placeholder="Ej. Bloqueador de publicidad" autocomplete="off" />
+    </div>
+
+    <div class="field">
+      <label for="sUrl">URL del Servicio</label>
+      <input type="url" id="sUrl" placeholder="http://192.168.1.10:80" required autocomplete="off" />
+    </div>
+
+    <div class="field">
+      <div class="search-label-row">
+        <label>Imagen del Servicio</label>
+        <button type="button" id="btnSearchImg" class="btn-secondary">Buscar Imágenes</button>
+      </div>
+      <div class="image-options" id="imgContainer"></div>
+      <input type="url" id="sImageCustom" placeholder="O pega un enlace de imagen directamente" autocomplete="off" />
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" id="cancelModalBtn" class="btn-cancel">Cancelar</button>
+      <button type="submit" class="btn-primary">Guardar Servicio</button>
+    </div>
+  </form>
+</dialog>
+
+<style>
+  .add-btn {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 56px;
+    height: 56px;
+    font-size: 28px;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease, background-color 0.2s ease;
+    z-index: 100;
+  }
+
+  .add-btn:hover {
+    transform: scale(1.1);
+    background: var(--accent-hover);
+  }
+
+  dialog {
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 1.5rem;
+    width: 420px;
+    max-width: 90vw;
+    background: var(--modal-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    color: var(--text);
+    box-shadow: var(--card-shadow-hover);
+  }
+
+  dialog::backdrop {
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+  }
+
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .modal-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+  }
+
+  .close-cross {
+    background: transparent;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+
+  .field {
+    margin-bottom: 1rem;
+  }
+
+  .field label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-bottom: 0.35rem;
+    color: var(--text-muted);
+  }
+
+  .search-label-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.35rem;
+  }
+
+  input {
+    width: 100%;
+    padding: 0.65rem 0.85rem;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--input-bg);
+    color: var(--text);
+    outline: none;
+    font-size: 0.95rem;
+    transition: border-color 0.2s ease;
+  }
+
+  input:focus {
+    border-color: var(--accent);
+  }
+
+  .image-options {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+  }
+
+  .btn-secondary {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    font-weight: 600;
+  }
+
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+  }
+
+  .btn-cancel {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 0.55rem 1.25rem;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 0.9rem;
+    transition: background-color 0.2s ease;
+  }
+
+  .btn-primary:hover {
+    background: var(--accent-hover);
+  }
+</style>
+
+<script>
+  import type { SearchImageResponse } from "../types/hub";
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const dialog = document.getElementById("addModal") as HTMLDialogElement | null;
+    const openBtn = document.getElementById("openModalBtn");
+    const cancelBtn = document.getElementById("cancelModalBtn");
+    const closeCross = document.getElementById("closeModalCross");
+    const sNameInput = document.getElementById("sName") as HTMLInputElement | null;
+    const btnSearchImg = document.getElementById("btnSearchImg");
+    const addForm = document.getElementById("addForm") as HTMLFormElement | null;
+    const imgContainer = document.getElementById("imgContainer");
+
+    let selectedImage = "";
+
+    // Abrir / Cerrar Modal
+    openBtn?.addEventListener("click", () => dialog?.showModal());
+    cancelBtn?.addEventListener("click", () => dialog?.close());
+    closeCross?.addEventListener("click", () => dialog?.close());
+
+    // Buscar imágenes al presionar Enter en el nombre
+    sNameInput?.addEventListener("keydown", (e: KeyboardEvent) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        btnSearchImg?.click();
+      }
+    });
+
+    // Acción de buscar imágenes
+    btnSearchImg?.addEventListener("click", async () => {
+      const query = sNameInput?.value.trim();
+      if (!query) return alert("Escribe un nombre de servicio primero.");
+
+      try {
+        const res = await fetch("/api/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query })
+        });
+
+        const data: SearchImageResponse = await res.json();
+        if (!imgContainer) return;
+
+        imgContainer.innerHTML = "";
+        selectedImage = "";
+
+        data.images.forEach((imgUrl) => {
+          const imgEl = document.createElement("img");
+          imgEl.src = imgUrl;
+
+          // Estilos explícitos inline para evitar bloqueos CSS
+          Object.assign(imgEl.style, {
+            width: "90px",
+            height: "90px",
+            objectFit: "cover",
+            borderRadius: "10px",
+            cursor: "pointer",
+            border: "2px solid transparent",
+            flexShrink: "0"
+          });
+
+          imgEl.onclick = () => {
+            imgContainer.querySelectorAll("img").forEach((img) => {
+              (img as HTMLElement).style.borderColor = "transparent";
+            });
+            imgEl.style.borderColor = "var(--accent)";
+            selectedImage = imgUrl;
+          };
+
+          imgContainer.appendChild(imgEl);
+        });
+      } catch (err) {
+        console.error("Error buscando imágenes:", err);
+      }
+    });
+
+    // Guardar el servicio
+    addForm?.addEventListener("submit", async (e: SubmitEvent) => {
+      e.preventDefault();
+
+      const customImageInput = document.getElementById("sImageCustom") as HTMLInputElement | null;
+      const descInput = document.getElementById("sDesc") as HTMLInputElement | null;
+      const urlInput = document.getElementById("sUrl") as HTMLInputElement | null;
+
+      const finalImage = customImageInput?.value.trim() || selectedImage;
+
+      const payload = {
+        name: sNameInput?.value.trim() ?? "",
+        description: descInput?.value.trim() ?? "",
+        url: urlInput?.value.trim() ?? "",
+        imageUrl: finalImage
+      };
+
+      const res = await fetch("/api/services", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        sessionStorage.removeItem("bentoLayout");
+        window.location.reload();
+      }
+    });
+  });
+</script>

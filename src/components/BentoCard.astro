@@ -1,0 +1,121 @@
+---
+import type { Service } from "../types/hub";
+
+interface Props {
+  service: Service;
+}
+
+const { service } = Astro.props;
+---
+
+<a
+  href={service.url}
+  target="_blank"
+  rel="noopener noreferrer"
+  class="bento-block"
+  data-url={service.url}
+>
+  {service.image && <img src={service.image} alt={service.name} loading="lazy" class="bento-bg-img" />}
+  
+  <div class="status-dot" title="Comprobando estado..."></div>
+  
+  <div class="info-card">
+    <h3 class="service-title">{service.name}</h3>
+    {service.description && <p class="service-desc">{service.description}</p>}
+  </div>
+</a>
+
+<style>
+  .bento-block {
+    background: var(--surface);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 1.25rem;
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                background-color 0.25s ease;
+    box-shadow: var(--card-shadow);
+  }
+
+  .bento-block:hover {
+    transform: translateY(-4px) scale(1.01);
+    box-shadow: var(--card-shadow-hover);
+    background: var(--surface-hover);
+  }
+
+  .bento-bg-img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 0;
+    opacity: 0.45;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+
+  .bento-block:hover .bento-bg-img {
+    opacity: 0.65;
+    transform: scale(1.05);
+  }
+
+  .status-dot {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: #9ca3af; /* Carga / Neutro */
+    z-index: 2;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 0 0 6px rgba(0, 0, 0, 0.2);
+  }
+
+  :global(.status-dot.active) {
+    background-color: #22c55e;
+    box-shadow: 0 0 10px #22c55e;
+  }
+
+  :global(.status-dot.inactive) {
+    background-color: #ef4444;
+    box-shadow: 0 0 10px #ef4444;
+  }
+
+  .info-card {
+    position: relative;
+    z-index: 1;
+    background: var(--surface);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    padding: 0.75rem 1rem;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+  }
+
+  .service-title {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .service-desc {
+    margin: 0.25rem 0 0 0;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+</style>

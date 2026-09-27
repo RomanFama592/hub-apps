@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  hub-apps:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: local-hub-apps
+    restart: unless-stopped
+    ports:
+      - "4321:4321"
+    environment:
+      - NODE_ENV=production
+      - HOST=0.0.0.0
+      - PORT=4321
+    volumes:
+      # Monta la carpeta local ./data dentro del contenedor para persistir config.json
+      - ./config:/app/data
+      - ./assets:/app/public/assets
