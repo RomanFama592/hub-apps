@@ -15,10 +15,50 @@ const { service } = Astro.props;
   class="bento-block"
   data-url={service.url}
 >
-  {service.image && <img src={service.image} alt={service.name} loading="lazy" class="bento-bg-img" />}
-  
-  <div class="status-dot" title="Comprobando estado..."></div>
-  
+  {
+    service.image && (
+      <img
+        src={service.image}
+        alt={service.name}
+        loading="lazy"
+        class="bento-bg-img"
+        onerror="this.style.display='none'"
+      />
+    )
+  }
+
+  <div class="card-top">
+    <div class="status-dot" title="Comprobando estado..."></div>
+
+    <!-- Menú de 3 puntos verticales -->
+    <div class="options-wrapper">
+      <button class="options-btn" aria-label="Opciones del servicio" type="button">
+        &#8942;
+      </button>
+      <div class="options-menu">
+        <button
+          type="button"
+          class="menu-item edit-btn"
+          data-id={service.id}
+          data-name={service.name}
+          data-desc={service.description || ""}
+          data-url={service.url}
+          data-image={service.image || ""}
+        >
+          ✏️ Editar
+        </button>
+        <button
+          type="button"
+          class="menu-item delete-btn"
+          data-id={service.id}
+          data-name={service.name}
+        >
+          🗑️ Eliminar
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div class="info-card">
     <h3 class="service-title">{service.name}</h3>
     {service.description && <p class="service-desc">{service.description}</p>}
@@ -37,7 +77,7 @@ const { service } = Astro.props;
     color: inherit;
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
+    justify-content: space-between;
     position: relative;
     overflow: hidden;
     transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
@@ -69,15 +109,19 @@ const { service } = Astro.props;
     transform: scale(1.05);
   }
 
+  .card-top {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
   .status-dot {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    background-color: #9ca3af; /* Carga / Neutro */
-    z-index: 2;
+    background-color: #9ca3af;
     transition: background-color 0.3s ease, box-shadow 0.3s ease;
     box-shadow: 0 0 6px rgba(0, 0, 0, 0.2);
   }
@@ -92,6 +136,79 @@ const { service } = Astro.props;
     box-shadow: 0 0 10px #ef4444;
   }
 
+  /* Estilos Menú de Opciones */
+  .options-wrapper {
+    position: relative;
+  }
+
+  .options-btn {
+    background: var(--surface);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    font-size: 1.2rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+  }
+
+  .options-btn:hover {
+    background: var(--surface-hover);
+    transform: scale(1.1);
+  }
+
+  .options-menu {
+    display: none;
+    position: absolute;
+    top: 38px;
+    right: 0;
+    background: var(--modal-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0.4rem;
+    box-shadow: var(--card-shadow-hover);
+    z-index: 10;
+    min-width: 120px;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .options-menu.show {
+    display: flex;
+  }
+
+  .menu-item {
+    background: transparent;
+    border: none;
+    color: var(--text);
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    font-size: 0.85rem;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: background-color 0.2s ease;
+  }
+
+  .menu-item:hover {
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  .delete-btn:hover {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+  }
+
   .info-card {
     position: relative;
     z-index: 1;
@@ -101,6 +218,7 @@ const { service } = Astro.props;
     padding: 0.75rem 1rem;
     border-radius: 12px;
     border: 1px solid var(--border);
+    margin-top: 2rem;
   }
 
   .service-title {
@@ -119,3 +237,83 @@ const { service } = Astro.props;
     text-overflow: ellipsis;
   }
 </style>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    // Manejo del menú de 3 puntos en cada tarjeta
+    document.querySelectorAll(".bento-block").forEach((card) => {
+      const optionsBtn = card.querySelector(".options-btn");
+      const optionsMenu = card.querySelector(".options-menu");
+      const editBtn = card.querySelector(".edit-btn");
+      const deleteBtn = card.querySelector(".delete-btn");
+
+      // Abrir/Cerrar menú sin activar el enlace de la tarjeta
+      optionsBtn?.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Cerrar otros menús abiertos
+        document.querySelectorAll(".options-menu.show").forEach((m) => {
+          if (m !== optionsMenu) m.classList.remove("show");
+        });
+
+        optionsMenu?.classList.toggle("show");
+      });
+
+      // Acción de Editar: Notifica mediante un evento global al modal
+      editBtn?.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        optionsMenu?.classList.remove("show");
+
+        const target = e.currentTarget as HTMLElement;
+        const serviceData = {
+          id: target.dataset.id,
+          name: target.dataset.name,
+          description: target.dataset.desc,
+          url: target.dataset.url,
+          image: target.dataset.image
+        };
+
+        window.dispatchEvent(
+          new CustomEvent("open-edit-modal", { detail: serviceData })
+        );
+      });
+
+      // Acción de Eliminar
+      deleteBtn?.addEventListener("click", async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        optionsMenu?.classList.remove("show");
+
+        const target = e.currentTarget as HTMLElement;
+        const id = target.dataset.id;
+        const name = target.dataset.name;
+
+        if (confirm(`¿Estás seguro de que deseas eliminar "${name}"?`)) {
+          try {
+            const res = await fetch("/api/services", {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id })
+            });
+
+            if (res.ok) {
+              sessionStorage.removeItem("bentoLayout");
+              window.location.reload();
+            }
+          } catch (err) {
+            console.error("Error al eliminar el servicio:", err);
+          }
+        }
+      });
+    });
+
+    // Cerrar menús al hacer clic fuera
+    document.addEventListener("click", () => {
+      document.querySelectorAll(".options-menu.show").forEach((m) => {
+        m.classList.remove("show");
+      });
+    });
+  });
+</script>

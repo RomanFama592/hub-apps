@@ -1,6 +1,5 @@
 import fs from 'fs/promises';
 import path from 'path';
-
 import type { Config } from '../../types/hub';
 
 // 1. Extrae las iniciales del nombre (hasta 2 letras)
@@ -12,22 +11,19 @@ function getInitials(name: string): string {
   return name.slice(0, 2).toUpperCase();
 }
 
-// 2. Genera un archivo SVG con las iniciales y un gradiente estético
+// 2. Genera un SVG dinámico con las iniciales y gradiente
 function generateInitialsSVG(name: string): string {
   const initials = getInitials(name);
-
-  // Paleta de gradientes estilo Fluent / Modern Dark
   const gradients = [
-    { start: '#3b82f6', end: '#1d4ed8' }, // Azul
-    { start: '#6366f1', end: '#4338ca' }, // Índigo
-    { start: '#8b5cf6', end: '#6d28d9' }, // Púrpura
-    { start: '#06b6d4', end: '#0e7490' }, // Cían
-    { start: '#10b981', end: '#047857' }, // Esmeralda
-    { start: '#f59e0b', end: '#b45309' }, // Ámbar
-    { start: '#64748b', end: '#334155' }  // Pizarra / Gris
+    { start: '#3b82f6', end: '#1d4ed8' },
+    { start: '#6366f1', end: '#4338ca' },
+    { start: '#8b5cf6', end: '#6d28d9' },
+    { start: '#06b6d4', end: '#0e7490' },
+    { start: '#10b981', end: '#047857' },
+    { start: '#f59e0b', end: '#b45309' },
+    { start: '#64748b', end: '#334155' }
   ];
 
-  // Asigna siempre el mismo gradiente según el nombre del servicio
   const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
   const color = gradients[hash % gradients.length];
 
@@ -52,63 +48,132 @@ function generateInitialsSVG(name: string): string {
 </svg>`.trim();
 }
 
-export const POST = async ({ request }: { request: Request }) => {
-    const data = await request.json();
-    let localImagePath = "";
-    let isDownloaded = false;
+// Helper para procesar/descargar imagen o generar el SVG de iniciales
+async function processServiceImage(name: string, imageUrl?: string): Promise<string> {
+  const sanitizedName = name.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'service';
 
-    // Normalizar nombre de archivo (ej: "Home Assistant" -> "homeassistant")
-    const sanitizedName = data.name.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'service';
-
-    // PASO 1: Intentar descargar si se proporcionó una URL remota
-    if (data.imageUrl && data.imageUrl.startsWith('http')) {
-        try {
-            const response = await fetch(data.imageUrl);
-            
-            if (response.ok) {
-                const buffer = await response.arrayBuffer();
-                const filename = `${Date.now()}-${sanitizedName}.jpg`;
-                const filepath = path.join(process.cwd(), 'public/assets', filename);
-                
-                await fs.writeFile(filepath, Buffer.from(buffer));
-                localImagePath = `/assets/${filename}`;
-                isDownloaded = true;
-            }
-        } catch (error) {
-            console.error(`Error al descargar la imagen remota para "${data.name}". Generando avatar...`);
-        }
-    }
-
-    // PASO 2: Si no hay URL o falló la descarga, generar el SVG con iniciales
-    if (!isDownloaded) {
-        const svgContent = generateInitialsSVG(data.name);
-        const filename = `${Date.now()}-${sanitizedName}-initials.svg`;
-        const filepath = path.join(process.cwd(), 'public/assets', filename);
-        
-        await fs.writeFile(filepath, svgContent, 'utf-8');
-        localImagePath = `/assets/${filename}`;
-    }
-
-    // PASO 3: Guardar los datos actualizados en config.json
-    const configPath = path.join(process.cwd(), 'data/config.json');
-    let config: Config = { maxPerPage: 10, services: [] };
-
+  if (imageUrl && imageUrl.startsWith('http')) {
     try {
-        const content = await fs.readFile(configPath, 'utf-8');
-        config = JSON.parse(content);
-    } catch (e) {
-        // Si no existe config.json, creamos la estructura por defecto
+      const response = await fetch(imageUrl);
+      if (response.ok) {
+        const buffer = await response.arrayBuffer();
+        const filename = `${Date.now()}-${sanitizedName}.jpg`;
+        const filepath = path.join(process.cwd(), 'public/assets', filename);
+        await fs.writeFile(filepath, Buffer.from(buffer));
+        return `/assets/${filename}`;
+      }
+    } catch (error) {
+      console.error(`Error descargando imagen para "${name}". Generando avatar por defecto...`);
     }
+  }
 
-    config.services.push({
-        id: Date.now().toString(),
-        name: data.name,
-        description: data.description || '',
-        url: data.url,
-        image: localImagePath
-    });
+  // Generar SVG si falló la descarga o no se proporcionó URL
+  const svgContent = generateInitialsSVG(name);
+  const filename = `${Date.now()}-${sanitizedName}-initials.svg`;
+  const filepath = path.join(process.cwd(), 'public/assets', filename);
+  await fs.writeFile(filepath, svgContent, 'utf-8');
+  return `/assets/${filename}`;
+}
 
-    await fs.writeFile(configPath, JSON.stringify(config, null, 2));
+// Helper para leer la configuración
+async function getConfig(): Promise<{ config: Config; configPath: string }> {
+  const configPath = path.join(process.cwd(), 'data/config.json');
+  let config: Config = { maxPerPage: 10, services: [] };
+  try {
+    const content = await fs.readFile(configPath, 'utf-8');
+    config = JSON.parse(content) as Config;
+  } catch (e) {
+    // Si no existe, se creará uno nuevo
+  }
+  return { config, configPath };
+}
 
-    return new Response(JSON.stringify({ success: true, image: localImagePath }), { status: 200 });
+// --------------------------------------------------------------------------
+// METODO POST: CREAR SERVICIO
+// --------------------------------------------------------------------------
+export const POST = async ({ request }: { request: Request }) => {
+  const data = await request.json();
+  const localImagePath = await processServiceImage(data.name, data.imageUrl);
+  const { config, configPath } = await getConfig();
+
+  const newService = {
+    id: Date.now().toString(),
+    name: data.name,
+    description: data.description || '',
+    url: data.url,
+    image: localImagePath
+  };
+
+  config.services.push(newService);
+  await fs.writeFile(configPath, JSON.stringify(config, null, 2));
+
+  return new Response(JSON.stringify({ success: true, service: newService }), { status: 200 });
+};
+
+// --------------------------------------------------------------------------
+// METODO PUT: EDITAR SERVICIO
+// --------------------------------------------------------------------------
+export const PUT = async ({ request }: { request: Request }) => {
+  const data = await request.json();
+  if (!data.id) {
+    return new Response(JSON.stringify({ error: "Falta el ID del servicio" }), { status: 400 });
+  }
+
+  const { config, configPath } = await getConfig();
+  const index = config.services.findIndex((s) => s.id === data.id);
+
+  if (index === -1) {
+    return new Response(JSON.stringify({ error: "Servicio no encontrado" }), { status: 404 });
+  }
+
+  let imagePath = config.services[index].image;
+
+  // Si proporcionó una nueva URL de imagen
+  if (data.imageUrl && data.imageUrl !== imagePath) {
+    imagePath = await processServiceImage(data.name, data.imageUrl);
+  } else if (data.name !== config.services[index].name && imagePath?.endsWith('-initials.svg')) {
+    // Si cambió el nombre y la imagen era el SVG de iniciales, regenerarlo con el nuevo nombre
+    imagePath = await processServiceImage(data.name);
+  }
+
+  config.services[index] = {
+    ...config.services[index],
+    name: data.name,
+    description: data.description || '',
+    url: data.url,
+    image: imagePath
+  };
+
+  await fs.writeFile(configPath, JSON.stringify(config, null, 2));
+
+  return new Response(JSON.stringify({ success: true, service: config.services[index] }), { status: 200 });
+};
+
+// --------------------------------------------------------------------------
+// METODO DELETE: ELIMINAR SERVICIO
+// --------------------------------------------------------------------------
+export const DELETE = async ({ request }: { request: Request }) => {
+  const data = await request.json();
+  if (!data.id) {
+    return new Response(JSON.stringify({ error: "Falta el ID del servicio" }), { status: 400 });
+  }
+
+  const { config, configPath } = await getConfig();
+  const serviceToDelete = config.services.find((s) => s.id === data.id);
+
+  // Opcional: Eliminar la imagen local del almacenamiento si está en /assets/
+  if (serviceToDelete?.image?.startsWith('/assets/')) {
+    try {
+      const filename = path.basename(serviceToDelete.image);
+      const imgPath = path.join(process.cwd(), 'public/assets', filename);
+      await fs.unlink(imgPath);
+    } catch (e) {
+      // Ignorar si el archivo no existía físicamente
+    }
+  }
+
+  config.services = config.services.filter((s) => s.id !== data.id);
+  await fs.writeFile(configPath, JSON.stringify(config, null, 2));
+
+  return new Response(JSON.stringify({ success: true }), { status: 200 });
 };
