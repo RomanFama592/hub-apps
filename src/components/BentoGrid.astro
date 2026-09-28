@@ -18,10 +18,21 @@ const mobileCols = 3;
 
 const ids = services.map((s) => s.id);
 
+const cookie = Astro.cookies.get("bentoLayout");
+let bentoLayout: { desktopSeed: string | null; mobileSeed: string | null } | null = null;
+
+if (cookie?.value) {
+  try {
+    bentoLayout = JSON.parse(decodeURIComponent(cookie.value));
+  } catch (e) {
+    console.error("Error al parsear la cookie bentoLayout:", e);
+  }
+}
+
 // Seeds independientes (pero relacionadas) para que el patrón de
 // escritorio y el de móvil no sean idénticos entre sí.
-const desktopSeed = buildSeed(ids, 1);
-const mobileSeed = buildSeed(ids, 2);
+const desktopSeed = Number.parseInt(bentoLayout?.desktopSeed || buildSeed(ids, 1).toString());
+const mobileSeed = Number.parseInt(bentoLayout?.mobileSeed || buildSeed(ids, 2).toString());
 
 const desktopLayout = generateBentoLayout(n, desktopCols, desktopSeed);
 const mobileLayout = generateBentoLayout(n, mobileCols, mobileSeed);
@@ -43,9 +54,27 @@ const gridVars = [
 ].join(";");
 ---
 
-<div class="bento-grid" style={gridVars}>
+<div class="bento-grid" style={gridVars} seed-desktop={desktopSeed} seed-mobile={mobileSeed}>
   {cards.map(({ service, d, m }) => <BentoCard service={service} desktop={d} mobile={m} />)}
 </div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const bentoGrid = document.querySelector(".bento-grid");
+    if (!bentoGrid) return;
+
+    const layoutData = {
+      desktopSeed: bentoGrid.getAttribute("seed-desktop") || null,
+      mobileSeed: bentoGrid.getAttribute("seed-mobile") || null
+    };
+
+    const cookieValue = encodeURIComponent(JSON.stringify(layoutData));
+    const oneYearInSeconds = 31536000;
+
+    // document.cookie funciona en todos los navegadores
+    document.cookie = `bentoLayout=${cookieValue}; path=/; max-age=${oneYearInSeconds}; SameSite=Lax`;
+  });
+</script>
 
 <style>
   .bento-grid {

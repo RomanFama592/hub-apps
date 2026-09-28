@@ -29,6 +29,20 @@ const pages: Service[][] = chunkArray(config.services, config.maxPerPage);
 ---
 
 <Layout title="Local Hub - Bento Dashboard">
+  <!-- Botón discreto para limpiar cookies -->
+  <button 
+    id="clear-cookies-btn" 
+    class="secret-reset-btn" 
+    title="Limpiar cookies y restablecer layout"
+    aria-label="Limpiar cookies"
+  >
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 6h18"></path>
+      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+    </svg>
+  </button>
+
   <main class="slider">
     {
       pages.length === 0 ? (
@@ -52,13 +66,31 @@ const pages: Service[][] = chunkArray(config.services, config.maxPerPage);
 </Layout>
 
 <style>
-  /* Contenedor raíz: viewport lock estricto. dvh resuelve el clásico
-     problema de 100vh en móvil (barras de navegador que aparecen o
-     desaparecen); vh queda como fallback para navegadores sin soporte
-     de unidades dinámicas. overflow:hidden en TODOS los niveles
-     (slider + page) es lo que garantiza cero scroll vertical bajo
-     cualquier circunstancia, incluso si algún contenido inesperado
-     fuese más alto de lo previsto. */
+  /* Botón oculto/discreto en la esquina superior izquierda */
+  .secret-reset-btn {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    z-index: 999;
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.15); /* Muy tenue, casi invisible */
+    padding: 6px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: color 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .secret-reset-btn:hover {
+    color: #ef4444; /* Rojo tenue al pasar el mouse */
+    background-color: rgba(239, 68, 68, 0.12);
+    transform: scale(1.1);
+  }
+
+  /* Contenedor raíz */
   .slider {
     display: flex;
     width: 100vw;
@@ -75,9 +107,6 @@ const pages: Service[][] = chunkArray(config.services, config.maxPerPage);
     display: none;
   }
 
-  /* Cada página ocupa el 100% del viewport y aloja un BentoGrid
-     completo. El padding vive aquí para que BentoGrid pueda asumir
-     "ocupo el 100% de mi contenedor" sin preocuparse de márgenes. */
   .page {
     flex: 0 0 100vw;
     width: 100vw;
@@ -105,11 +134,24 @@ const pages: Service[][] = chunkArray(config.services, config.maxPerPage);
   import type { PingResponse } from "../types/hub";
 
   document.addEventListener("DOMContentLoaded", () => {
-    // El tamaño/posición de cada tarjeta ya llega calculado desde el
-    // servidor (ver BentoGrid.astro + src/lib/bentoLayout.ts) como
-    // custom properties CSS, así que aquí solo queda comprobar el
-    // estado (ping) de cada servicio — cero recálculo de layout en
-    // cliente, cero parpadeos, cero desajuste entre SSR y DOM.
+    // 1. Lógica del botón secreto de eliminación de cookies
+    const clearBtn = document.getElementById("clear-cookies-btn");
+    
+    if (clearBtn) {
+      clearBtn.addEventListener("click", () => {
+        // Elimina todas las cookies expirándolas inmediatamente
+        document.cookie.split(";").forEach((cookie) => {
+          const eqPos = cookie.indexOf("=");
+          const name = eqPos > -1 ? cookie.substring(0, eqPos) : cookie;
+          document.cookie = `${name.trim()}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+        });
+
+        // Recarga la página para refrescar el layout desde el servidor
+        window.location.reload();
+      });
+    }
+
+    // 2. Ping de estado de servicios
     const blocks = document.querySelectorAll<HTMLElement>(".bento-block");
 
     blocks.forEach(async (block) => {

@@ -1,3 +1,4 @@
+// src/pages/api/services.ts
 import fs from 'fs/promises';
 import path from 'path';
 import type { Config } from '../../types/hub';
@@ -85,10 +86,13 @@ export const PUT = async ({ request }: { request: Request }) => {
   let imagePath = config.services[index].image;
 
   // Si proporcionó una nueva URL de imagen
+  console.log("Datos recibidos para PUT:", data);
   if (data.imageUrl && data.imageUrl !== imagePath) {
+    console.log(`Procesando nueva imagen para el servicio "${data.name}" desde URL: ${data.imageUrl}`);
     imagePath = await processServiceImage(data.name, data.imageUrl);
   } else if (data.name !== config.services[index].name && imagePath?.endsWith('-initials.svg')) {
     // Si cambió el nombre y la imagen era el SVG de iniciales, regenerarlo con el nuevo nombre
+    console.log(`El nombre del servicio cambió y la imagen era un SVG de iniciales. Regenerando imagen para "${data.name}".`);
     imagePath = await processServiceImage(data.name);
   }
 
