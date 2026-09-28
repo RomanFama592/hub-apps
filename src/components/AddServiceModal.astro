@@ -36,7 +36,7 @@
         <button type="button" id="btnSearchImg" class="btn-secondary">Buscar Imágenes</button>
       </div>
       <div class="image-options" id="imgContainer"></div>
-      <input type="url" id="sImageCustom" placeholder="O pega un enlace de imagen directamente" autocomplete="off" />
+      <input type="text" id="sImageCustom" placeholder="O pega un enlace de imagen directamente" autocomplete="off" />
     </div>
 
     <div class="modal-actions">
@@ -264,6 +264,7 @@
     const sDescInput = document.getElementById("sDesc") as HTMLInputElement | null;
     const sUrlInput = document.getElementById("sUrl") as HTMLInputElement | null;
     const sImageCustomInput = document.getElementById("sImageCustom") as HTMLInputElement | null;
+    const btnSearchImg = document.getElementById("btnSearchImg") as HTMLButtonElement | null;
     const imgContainer = document.getElementById("imgContainer");
 
     let selectedImage = "";
@@ -332,6 +333,53 @@
       if (submitBtn) submitBtn.textContent = "Actualizar Cambios";
 
       dialog?.showModal();
+    });
+
+    btnSearchImg?.addEventListener("click", async () => {
+      const query = sNameInput?.value.trim();
+      if (!query) return alert("Escribe un nombre de servicio primero.");
+
+      try {
+        const res = await fetch("/api/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query })
+        });
+
+        const data: SearchImageResponse = await res.json();
+        if (!imgContainer) return;
+
+        imgContainer.innerHTML = "";
+        selectedImage = "";
+
+        data.images.forEach((imgUrl) => {
+          const imgEl = document.createElement("img");
+          imgEl.src = imgUrl;
+
+          // Estilos explícitos inline para evitar bloqueos CSS
+          Object.assign(imgEl.style, {
+            width: "90px",
+            height: "90px",
+            objectFit: "cover",
+            borderRadius: "10px",
+            cursor: "pointer",
+            border: "2px solid transparent",
+            flexShrink: "0"
+          });
+
+          imgEl.onclick = () => {
+            imgContainer.querySelectorAll("img").forEach((img) => {
+              (img as HTMLElement).style.borderColor = "transparent";
+            });
+            imgEl.style.borderColor = "var(--accent)";
+            selectedImage = imgUrl;
+          };
+
+          imgContainer.appendChild(imgEl);
+        });
+      } catch (err) {
+        console.error("Error buscando imágenes:", err);
+      }
     });
 
     // Envío del Formulario (Creación POST / Edición PUT)

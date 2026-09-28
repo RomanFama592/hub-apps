@@ -7,7 +7,7 @@ import { generateInitialsSVG } from '../../lib/avatar';
 async function processServiceImage(name: string, imageUrl?: string): Promise<string> {
   const sanitizedName = name.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'service';
 
-  if (imageUrl && imageUrl.startsWith('http')) {
+  if (imageUrl) {
     try {
       const response = await fetch(imageUrl);
       if (response.ok) {
@@ -56,7 +56,8 @@ export const POST = async ({ request }: { request: Request }) => {
     name: data.name,
     description: data.description || '',
     url: data.url,
-    image: localImagePath
+    image: localImagePath,
+    imageUrlOriginal: data.imageUrl || null
   };
 
   config.services.push(newService);
@@ -96,7 +97,8 @@ export const PUT = async ({ request }: { request: Request }) => {
     name: data.name,
     description: data.description || '',
     url: data.url,
-    image: imagePath
+    image: imagePath,
+    imageUrlOriginal: data.imageUrl || null
   };
 
   await fs.writeFile(configPath, JSON.stringify(config, null, 2));

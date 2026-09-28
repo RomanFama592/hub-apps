@@ -4,6 +4,7 @@ export interface Service {
   description?: string;
   url: string;
   image?: string;
+  imageUrlOriginal?: string | null;
 }
 
 export interface Config {
