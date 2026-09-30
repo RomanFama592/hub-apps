@@ -20,18 +20,7 @@
  *    entropía del servidor para que el patrón cambie entre cargas.
  */
 
-export interface BentoLeaf {
-  x: number; // columna inicial (0-index)
-  y: number; // fila inicial (0-index)
-  w: number; // ancho en celdas (1 o 2)
-  h: number; // alto en celdas (1 o 2)
-}
-
-export interface BentoLayoutResult {
-  leaves: BentoLeaf[];
-  cols: number;
-  rows: number;
-}
+import type { BentoLeaf, BentoLayoutResult, MutableLeaf } from "../types/hub";
 
 /** PRNG determinista (mulberry32) — reproducible a partir de un entero semilla. */
 function mulberry32(seed: number): () => number {
@@ -67,7 +56,6 @@ export function buildSeed(ids: string[], salt: number = 0): number {
   return (datasetHash ^ serverEntropy ^ (salt * 0x9e3779b1)) >>> 0;
 }
 
-interface MutableLeaf extends BentoLeaf {}
 
 function isOversized(leaf: MutableLeaf): boolean {
   return leaf.w > 2 || leaf.h > 2;

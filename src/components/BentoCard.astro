@@ -1,7 +1,7 @@
 ---
 import { Image } from "astro:assets";
 import type { Service } from "../types/hub";
-import type { BentoLeaf } from "../lib/bentoLayout";
+import type { BentoLeaf } from "../types/hub";
 
 interface Props {
   service: Service;
@@ -227,7 +227,7 @@ const desktopArea = desktop.w * desktop.h;
 
   .options-menu {
     display: none;
-    position: absolute;
+    position: fixed;
     top: 38px;
     right: 0;
     background: var(--modal-bg);
@@ -237,7 +237,7 @@ const desktopArea = desktop.w * desktop.h;
     border-radius: 12px;
     padding: 0.4rem;
     box-shadow: var(--card-shadow-hover);
-    z-index: 10;
+    z-index: 9999;
     min-width: 120px;
     flex-direction: column;
     gap: 0.2rem;

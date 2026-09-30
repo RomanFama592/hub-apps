@@ -3,8 +3,11 @@ import fs from "fs/promises";
 import path from "path";
 import type { Config } from "../types/hub.ts";
 import { generateInitialsSVG } from "./avatar.ts";
+import { ASSETS_DIR } from "./contants.ts";
+import { getConfig, saveConfig } from "./config.ts";
 
-const isLocalImageValid = async (imagePath: string): Promise<boolean> => {
+// Valida si una imagen local existe y tiene un formato de imagen válido
+export const isLocalImageValid = async (imagePath: string): Promise<boolean> => {
   try {
     const relativePath = imagePath.startsWith("/") ? imagePath.slice(1) : imagePath;
     const fullPath = path.join(process.cwd(), "public", relativePath);
@@ -27,6 +30,7 @@ const isLocalImageValid = async (imagePath: string): Promise<boolean> => {
   }
 };
 
+// Determina la extensión correcta a partir del Content-Type o la URL
 const getExtension = (url: string, contentType: string | null): string => {
   if (contentType) {
     if (contentType.includes("image/png")) return ".png";
@@ -39,8 +43,45 @@ const getExtension = (url: string, contentType: string | null): string => {
   return match ? `.${match[1]}` : ".png";
 };
 
-const cleanupOrphanedImages = async (services: Config["services"]): Promise<number> => {
-  const assetsDir = path.join(process.cwd(), "public/assets");
+// Procesa, descarga o genera la imagen/SVG para un servicio de forma estandarizada
+export const processServiceImage = async (
+  serviceId: string,
+  name: string,
+  imageUrlOriginal?: string | null
+): Promise<{ imagePath: string; downloaded: boolean }> => {
+  try {
+    await fs.mkdir(ASSETS_DIR, { recursive: true });
+  } catch (e) {}
+
+  if (imageUrlOriginal) {
+    try {
+      const response = await fetch(imageUrlOriginal);
+      if (response.ok) {
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        const ext = getExtension(imageUrlOriginal, response.headers.get("content-type"));
+        const filename = `${serviceId}${ext}`;
+        const filepath = path.join(ASSETS_DIR, filename);
+
+        await fs.writeFile(filepath, buffer);
+        return { imagePath: `/assets/${filename}`, downloaded: true };
+      }
+    } catch (e) {
+      console.error(`Error descargando imagen para "${name}". Generando avatar por defecto...`);
+    }
+  }
+
+  // Generar SVG de iniciales si no hay URL o si la descarga falló
+  const svgContent = generateInitialsSVG(name);
+  const filename = `${serviceId}-initials.svg`;
+  const filepath = path.join(ASSETS_DIR, filename);
+
+  await fs.writeFile(filepath, svgContent, "utf-8");
+  return { imagePath: `/assets/${filename}`, downloaded: false };
+};
+
+// Elimina imágenes en public/assets que no pertenecen a ningún servicio activo
+export const cleanupOrphanedImages = async (services: Config["services"]): Promise<number> => {
   let cleanedCount = 0;
 
   try {
@@ -51,11 +92,11 @@ const cleanupOrphanedImages = async (services: Config["services"]): Promise<numb
         .map((image) => path.basename(image))
     );
 
-    const files = await fs.readdir(assetsDir);
+    const files = await fs.readdir(ASSETS_DIR);
 
     for (const file of files) {
       if (!activeFilenames.has(file)) {
-        const filePath = path.join(assetsDir, file);
+        const filePath = path.join(ASSETS_DIR, file);
         const stats = await fs.stat(filePath);
         if (stats.isFile()) {
           await fs.unlink(filePath);
@@ -64,22 +105,15 @@ const cleanupOrphanedImages = async (services: Config["services"]): Promise<numb
       }
     }
   } catch (e) {
-    // Si la carpeta no existe u ocurre un error de lectura, se ignora limpiamente
+    // Si la carpeta no existe u ocurre un error, se ignora
   }
 
   return cleanedCount;
 };
 
+// Regenera todas las imágenes/SVGs de la configuración si están rotas o faltantes
 export const regenerateImages = async () => {
-  const configPath = path.join(process.cwd(), "data/config.json");
-
-  let config: Config;
-  try {
-    const content = await fs.readFile(configPath, "utf-8");
-    config = JSON.parse(content) as Config;
-  } catch (e) {
-    return { success: false, error: "No se pudo leer data/config.json" };
-  }
+  const { config } = await getConfig();
 
   let regenerated = 0;
   const failed: string[] = [];
@@ -92,47 +126,18 @@ export const regenerateImages = async () => {
       continue;
     }
 
-    let processedSuccessfully = false;
-
-    if (service.imageUrlOriginal) {
-      try {
-        const response = await fetch(service.imageUrlOriginal);
-        if (response.ok) {
-          const arrayBuffer = await response.arrayBuffer();
-          const buffer = Buffer.from(arrayBuffer);
-          const ext = getExtension(
-            service.imageUrlOriginal,
-            response.headers.get("content-type")
-          );
-          const filename = `${service.id}${ext}`;
-          const filepath = path.join(process.cwd(), "public/assets", filename);
-
-          await fs.writeFile(filepath, buffer);
-          service.image = `/assets/${filename}`;
-          processedSuccessfully = true;
-          regenerated++;
-        }
-      } catch (e) {}
-    }
-
-    if (!processedSuccessfully) {
-      try {
-        const svgContent = generateInitialsSVG(service.name);
-        const filename = `${service.id}-initials.svg`;
-        const filepath = path.join(process.cwd(), "public/assets", filename);
-
-        await fs.writeFile(filepath, svgContent, "utf-8");
-        service.image = `/assets/${filename}`;
-        regenerated++;
-      } catch (e) {
-        failed.push(service.name);
-      }
+    try {
+      const { imagePath } = await processServiceImage(service.id, service.name, service.imageUrlOriginal);
+      service.image = imagePath;
+      regenerated++;
+    } catch (e) {
+      failed.push(service.name);
     }
   }
 
   if (regenerated > 0) {
     try {
-      await fs.writeFile(configPath, JSON.stringify(config, null, 2), "utf-8");
+      await saveConfig(config);
     } catch (e) {
       return { success: false, error: "No se pudo actualizar data/config.json" };
     }
