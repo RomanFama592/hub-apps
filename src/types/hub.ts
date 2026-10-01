@@ -23,6 +23,7 @@ export interface SearchImageResponse {
 
 export interface PingResponse {
   active: boolean;
+  error?: string;
 }
 
 export interface BentoLeaf {

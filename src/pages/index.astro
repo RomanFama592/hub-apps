@@ -167,6 +167,9 @@ const pages: Service[][] = chunkArray(config.services, config.maxPerPage);
         });
         const data: PingResponse = await res.json();
         dot.classList.add(data.active ? "active" : "inactive");
+        if (data.error) {
+          console.error(`Error ping a ${url}: ${data.error}`);
+        }
       } catch (e) {
         dot.classList.add("inactive");
       }
