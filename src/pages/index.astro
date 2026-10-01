@@ -13,6 +13,7 @@ try {
   const content = await fs.readFile(CONFIG_PATH, "utf-8");
   config = JSON.parse(content);
 } catch (e) {
+  console.log("Error al leer la configuración:", e);
   console.log("Configuración inicial no encontrada. Usando estado por defecto.");
 }
 
