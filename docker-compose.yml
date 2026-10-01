@@ -15,5 +15,5 @@ services:
       - PORT=4321
     volumes:
       # Monta la carpeta local ./data dentro del contenedor para persistir config.json
-      - ./config:/app/data
-      - ./assets:/app/public/assets
+      - ./config:/app/dist/server/data
+      - ./assets:/app/dist/client/assets

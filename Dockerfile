@@ -1,7 +1,7 @@
 # =========================================================
 # ETAPA 1: Base común con pnpm habilitado
 # =========================================================
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
@@ -17,7 +17,7 @@ COPY package.json pnpm-lock.yaml ./
 FROM base AS builder
 WORKDIR /app
 
-# Instalamos todas las dependencias (incluyendo devDependencies) usando la caché de pnpm
+# Instalamos todas las dependencias usando la caché de pnpm
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
 # Copiamos el resto del código fuente del proyecto
@@ -32,13 +32,13 @@ RUN pnpm build
 FROM base AS prod-deps
 WORKDIR /app
 
-# Instalamos solo dependencias de producción para mantener el contenedor limpio
+# Instalamos solo dependencias de producción
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --frozen-lockfile
 
 # =========================================================
 # ETAPA 4: Imagen de ejecución (Runner)
 # =========================================================
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
@@ -50,14 +50,11 @@ COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package.json ./package.json
 
-# Creamos el directorio 'data' para la persistencia del archivo config.json
-# y asignamos permisos al usuario no privilegiado 'node'
+# Creamos el directorio 'data' para la persistencia
 RUN mkdir -p /app/data && chown -R node:node /app
 
-# Seguridad: ejecutamos el proceso con un usuario sin privilegios de root
 USER node
 
 EXPOSE 4321
 
-# Comando de arranque para servidor Node con Astro SSR (@astrojs/node)
 CMD ["node", "./dist/server/entry.mjs"]

@@ -1,5 +1,3 @@
-import fetch from 'node-fetch';
-
 export const POST = async ({ request }) => {
     const { query } = await request.json();
     const images = [];

@@ -10,7 +10,7 @@ import { getConfig, saveConfig } from "./config.ts";
 export const isLocalImageValid = async (imagePath: string): Promise<boolean> => {
   try {
     const relativePath = imagePath.startsWith("/") ? imagePath.slice(1) : imagePath;
-    const fullPath = path.join(process.cwd(), "public", relativePath);
+    const fullPath = path.join(process.cwd(), ASSETS_DIR, relativePath);
 
     const stats = await fs.stat(fullPath);
     if (stats.size === 0) return false;
